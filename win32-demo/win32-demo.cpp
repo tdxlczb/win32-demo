@@ -4,6 +4,12 @@
 #include "stdafx.h"
 #include "win32-demo.h"
 
+#include <comdef.h>
+#include <gdiplus.h>
+using namespace Gdiplus;
+#pragma  comment(lib, "gdiplus.lib")
+static ULONG_PTR m_gdiplusToken;
+
 #define MAX_LOADSTRING 100
 
 // 全局变量: 
@@ -26,6 +32,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
     UNREFERENCED_PARAMETER(lpCmdLine);
 
     // TODO: 在此放置代码。
+
+    //初始化gdi+
+    Gdiplus::GdiplusStartupInput gdiplusStartupInput;
+    Gdiplus::GdiplusStartup(&m_gdiplusToken, &gdiplusStartupInput, NULL);
 
     // 初始化全局字符串
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
@@ -105,6 +115,12 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
       return FALSE;
    }
 
+   //设置窗口透明
+   //要使使窗体拥有透明效果,首先要有WS_EX_LAYERED扩展属性 WS_EX_LAYERED = 0x80000 
+   SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+   //透明度0-255
+   SetLayeredWindowAttributes(hWnd, 0xffffff, 200, LWA_ALPHA);
+
    ShowWindow(hWnd, nCmdShow);
    UpdateWindow(hWnd);
 
@@ -147,6 +163,41 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
             // TODO: 在此处添加使用 hdc 的任何绘图代码...
+
+            //gdi+绘制背景
+            RECT rc;
+            GetClientRect(hWnd, &rc);
+
+            //TCHAR szFilePath[MAX_PATH + 1] = { 0 };
+            //GetModuleFileName(NULL, szFilePath, MAX_PATH);
+            //(_tcsrchr(szFilePath, _T('\\')))[1] = 0; // 删除文件名，只获得路径字串
+            //std::wstring str(szFilePath);
+            //str.append(L"wallpaper.bmp");
+            //std::wstring str = L"E:\\res\\wallpaper.bmp";
+            const wchar_t* path = L"E:\\res\\wallpaper.png";
+
+            //加载图像
+            auto image = Image::FromFile(path);
+            if (image->GetLastStatus() != Status::Ok)
+            {
+                MessageBox(hWnd, L"加载图片失败!", L"提示", MB_OK);
+                return -1;
+            }
+            //取得宽度和高度
+            int width = image->GetWidth();
+            int height = image->GetHeight();
+            Graphics graphics(hdc);
+            graphics.DrawImage(image, 0, 0, rc.right - rc.left, rc.bottom - rc.top);
+            DeleteObject(hdc);
+
+            // gdi绘图==
+            // LoadImage只支持加载bmp位图
+            //HBITMAP hBitmap = (HBITMAP)LoadImage(NULL, path, IMAGE_BITMAP, rc.right - rc.left, rc.bottom - rc.top, LR_LOADFROMFILE);
+            //HDC hMemDc = CreateCompatibleDC(hdc);
+            //SelectObject(hMemDc, hBitmap);
+            //BitBlt(hdc, 0, 0, rc.right - rc.left, rc.bottom - rc.top, hMemDc, 0, 0, SRCCOPY);
+            // =========
+
             EndPaint(hWnd, &ps);
         }
         break;
